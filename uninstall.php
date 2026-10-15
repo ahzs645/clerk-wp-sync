@@ -6,6 +6,8 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 $options = [
     'clerk_wp_sync_webhook_secret',
     'clerk_wp_sync_api_key',
+    'clerk_wp_sync_publishable_key',
+    'clerk_wp_sync_login_url',
     'clerk_wp_sync_default_role',
     'clerk_wp_sync_deletion_behavior',
     'clerk_wp_sync_reassign_user'
@@ -23,4 +25,4 @@ $users = get_users([
 foreach ($users as $user_id) {
     delete_user_meta($user_id, 'clerk_id');
 }
-?> 
+?>

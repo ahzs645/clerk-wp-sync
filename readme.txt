@@ -2,9 +2,9 @@
 Contributors: alguertin
 Tags: clerk, users, authentication, sync
 Requires at least: 5.8
-Tested up to: 6.4
-Requires PHP: 7.4
-Stable tag: 1.0.0
+Tested up to: 7.0
+Requires PHP: 8.2
+Stable tag: 1.1.2-unbc-dev.20261015.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -37,13 +37,22 @@ You can configure this behavior in the plugin settings:
 * Unlink the user from Clerk while keeping the WordPress account
 
 = Is this plugin secure? =
-Yes, we use SVIX for secure webhook handling and verify all incoming requests using cryptographic signatures.
+Webhook requests are verified with Svix signatures. Session login checks Clerk signatures, issuer, session claims and site origins. Public enrollment uses limited roles. These controls require correct configuration, current dependencies and secure hosting; they are not a guarantee against compromise.
+
+Deleting a Clerk identity revokes its existing WordPress sessions. In unlink mode the WordPress account is retained, including its independent password-login policy. Ordinary Clerk session revocation is not synchronized to WordPress sessions.
 
 == Changelog ==
+
+= 1.1.2-unbc-dev.20261015 =
+* Validate browser session origins and required claims.
+* Restrict public enrollment roles and automatic privileged-account linking.
+* Revoke WordPress sessions after successful Clerk identity deletion.
+* Update bundled HTTP and cryptography dependencies.
 
 = 1.0.0 =
 * Initial release
 
 == Support ==
 
-For support, please visit [Systemsaholic](https://systemsaholic.com). 
+Maintained fork: https://github.com/ahzs645/clerk-wp-sync
+Original plugin by Al Guertin / Systemsaholic.
