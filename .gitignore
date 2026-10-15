@@ -1,6 +1,6 @@
 # Dependencies
 /vendor/
-composer.lock
+/release/
 
 # IDE files
 .idea/
@@ -11,4 +11,4 @@ composer.lock
 Thumbs.db
 
 # Debug logs
-debug.log 
+debug.log

@@ -10,7 +10,15 @@ class Admin {
         add_action('edit_user_profile', [$this, 'add_clerk_user_fields']);
 
         if (!get_option('clerk_wp_sync_default_role')) {
-            update_option('clerk_wp_sync_default_role', 'sales_rep');
+            update_option('clerk_wp_sync_default_role', 'subscriber');
+        }
+
+        if (!get_option('clerk_wp_sync_deletion_behavior')) {
+            update_option('clerk_wp_sync_deletion_behavior', 'unlink');
+        }
+
+        if (!get_option('clerk_wp_sync_login_url')) {
+            update_option('clerk_wp_sync_login_url', CLERK_WP_SYNC_DEFAULT_LOGIN_URL);
         }
     }
 
@@ -25,17 +33,22 @@ class Admin {
     }
 
     public function register_settings() {
-        $settings = [
-            'clerk_wp_sync_webhook_secret',
-            'clerk_wp_sync_api_key',
-            'clerk_wp_sync_default_role',
-            'clerk_wp_sync_deletion_behavior',
-            'clerk_wp_sync_reassign_user'
-        ];
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_webhook_secret', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_api_key', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_publishable_key', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_restrict_unbc_emails', ['sanitize_callback' => [$this, 'sanitize_checkbox']]);
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_login_url', ['sanitize_callback' => 'esc_url_raw']);
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_default_role', ['sanitize_callback' => [\ClerkWPSync\Security\AccountPolicy::class, 'registration_role']]);
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_deletion_behavior', ['sanitize_callback' => [$this, 'sanitize_deletion_behavior']]);
+        register_setting('clerk_wp_sync', 'clerk_wp_sync_reassign_user', ['sanitize_callback' => 'absint']);
+    }
 
-        foreach ($settings as $setting) {
-            register_setting('clerk_wp_sync', $setting);
-        }
+    public function sanitize_deletion_behavior($value): string {
+        return in_array($value, ['unlink', 'delete'], true) ? $value : 'unlink';
+    }
+
+    public function sanitize_checkbox($value): string {
+        return empty($value) ? '0' : '1';
     }
 
     public function render_settings_page() {
@@ -54,8 +67,10 @@ class Admin {
         $settings = [
             'clerk_wp_sync_webhook_secret' => 'sanitize_text_field',
             'clerk_wp_sync_api_key' => 'sanitize_text_field',
-            'clerk_wp_sync_default_role' => 'sanitize_text_field',
-            'clerk_wp_sync_deletion_behavior' => 'sanitize_text_field',
+            'clerk_wp_sync_publishable_key' => 'sanitize_text_field',
+            'clerk_wp_sync_login_url' => 'esc_url_raw',
+            'clerk_wp_sync_default_role' => [\ClerkWPSync\Security\AccountPolicy::class, 'registration_role'],
+            'clerk_wp_sync_deletion_behavior' => [$this, 'sanitize_deletion_behavior'],
             'clerk_wp_sync_reassign_user' => 'absint'
         ];
 
@@ -64,6 +79,9 @@ class Admin {
                 update_option($key, $sanitize_callback($_POST[$key]));
             }
         }
+
+        // Checkboxes are absent from POST when unchecked, so set them explicitly.
+        update_option('clerk_wp_sync_restrict_unbc_emails', isset($_POST['clerk_wp_sync_restrict_unbc_emails']) ? '1' : '0');
 
         add_settings_error(
             'clerk_wp_sync_messages',
@@ -104,4 +122,4 @@ class Admin {
         </table>
         <?php
     }
-} 
+}

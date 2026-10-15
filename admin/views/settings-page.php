@@ -4,12 +4,14 @@ if (!defined('ABSPATH')) {
 }
 
 $webhook_secret = get_option('clerk_wp_sync_webhook_secret');
+$login_url = get_option('clerk_wp_sync_login_url', CLERK_WP_SYNC_DEFAULT_LOGIN_URL);
+$restrict_unbc = get_option('clerk_wp_sync_restrict_unbc_emails', '1');
 $default_role = get_option('clerk_wp_sync_default_role', 'subscriber');
-$deletion_behavior = get_option('clerk_wp_sync_deletion_behavior', 'delete');
+$deletion_behavior = get_option('clerk_wp_sync_deletion_behavior', 'unlink');
 $reassign_user = get_option('clerk_wp_sync_reassign_user');
 
 $wp_roles = wp_roles();
-$available_roles = $wp_roles->get_names();
+$available_roles = \ClerkWPSync\Security\AccountPolicy::eligible_roles();
 
 $users = get_users([
     'fields' => ['ID', 'user_login', 'display_name'],
@@ -25,6 +27,25 @@ $users = get_users([
         <?php wp_nonce_field('clerk_wp_sync_settings'); ?>
 
         <table class="form-table" role="presentation">
+            <tr>
+                <th scope="row">
+                    <label for="clerk_wp_sync_login_url">
+                        <?php esc_html_e('Clerk Sign-in URL', 'clerk-wp-sync'); ?>
+                    </label>
+                </th>
+                <td>
+                    <input type="url"
+                           id="clerk_wp_sync_login_url"
+                           name="clerk_wp_sync_login_url"
+                           value="<?php echo esc_url($login_url); ?>"
+                           class="regular-text"
+                    />
+                    <p class="description">
+                        <?php esc_html_e('Used for the public Login button on the UNBC Intramurals homepage.', 'clerk-wp-sync'); ?>
+                    </p>
+                </td>
+            </tr>
+
             <tr>
                 <th scope="row">
                     <label for="clerk_wp_sync_webhook_secret">
@@ -58,7 +79,48 @@ $users = get_users([
                            class="regular-text"
                     />
                     <p class="description">
-                        <?php esc_html_e('Enter your Clerk Secret Key to enable syncing data back to Clerk.', 'clerk-wp-sync'); ?>
+                        <?php esc_html_e('Required for portal sign-in. Enter your Clerk Secret Key (sk_…). Also lets the PHP SDK write wp_id back to Clerk private metadata.', 'clerk-wp-sync'); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="clerk_wp_sync_publishable_key">
+                        <?php esc_html_e('Publishable Key', 'clerk-wp-sync'); ?>
+                    </label>
+                </th>
+                <td>
+                    <input type="text"
+                           id="clerk_wp_sync_publishable_key"
+                           name="clerk_wp_sync_publishable_key"
+                           value="<?php echo esc_attr(get_option('clerk_wp_sync_publishable_key')); ?>"
+                           class="regular-text"
+                    />
+                    <p class="description">
+                        <?php esc_html_e('Required for portal sign-in. Enter your Clerk Publishable Key (pk_…). Used to render the embedded sign-in widget on the portal page.', 'clerk-wp-sync'); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="clerk_wp_sync_restrict_unbc_emails">
+                        <?php esc_html_e('Restrict sign-up to UNBC emails', 'clerk-wp-sync'); ?>
+                    </label>
+                </th>
+                <td>
+                    <label for="clerk_wp_sync_restrict_unbc_emails">
+                        <input type="checkbox"
+                               id="clerk_wp_sync_restrict_unbc_emails"
+                               name="clerk_wp_sync_restrict_unbc_emails"
+                               value="1"
+                               <?php checked('1', (string) $restrict_unbc); ?>
+                        />
+                        <?php esc_html_e('Only create new captain or player accounts for verified @unbc.ca email addresses', 'clerk-wp-sync'); ?>
+                    </label>
+                    <p class="description">
+                        <?php esc_html_e('Existing linked accounts remain accessible. This setting blocks new WordPress account and portal profile creation for other domains.', 'clerk-wp-sync'); ?>
                     </p>
                 </td>
             </tr>
@@ -91,11 +153,11 @@ $users = get_users([
                 </th>
                 <td>
                     <select id="clerk_wp_sync_deletion_behavior" name="clerk_wp_sync_deletion_behavior">
-                        <option value="delete" <?php selected($deletion_behavior, 'delete'); ?>>
-                            <?php esc_html_e('Delete User', 'clerk-wp-sync'); ?>
-                        </option>
                         <option value="unlink" <?php selected($deletion_behavior, 'unlink'); ?>>
                             <?php esc_html_e('Unlink from Clerk', 'clerk-wp-sync'); ?>
+                        </option>
+                        <option value="delete" <?php selected($deletion_behavior, 'delete'); ?>>
+                            <?php esc_html_e('Delete User', 'clerk-wp-sync'); ?>
                         </option>
                     </select>
                     <p class="description">
@@ -133,7 +195,16 @@ $users = get_users([
                 <td>
                     <code><?php echo esc_url(rest_url('clerk-wp-sync/v1/webhook')); ?></code>
                     <p class="description">
-                        <?php esc_html_e('Use this URL in your Clerk dashboard to configure the webhook.', 'clerk-wp-sync'); ?>
+                        <?php esc_html_e('Use this URL in your Clerk dashboard to configure user.created, user.updated, and user.deleted events.', 'clerk-wp-sync'); ?>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><?php esc_html_e('Compatibility Webhook URL', 'clerk-wp-sync'); ?></th>
+                <td>
+                    <code><?php echo esc_url(rest_url('unbc-clerk/v1/webhook')); ?></code>
+                    <p class="description">
+                        <?php esc_html_e('This alias keeps the previous UNBC Clerk endpoint working while the Systemsaholic plugin is active.', 'clerk-wp-sync'); ?>
                     </p>
                 </td>
             </tr>

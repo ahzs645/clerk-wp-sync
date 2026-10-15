@@ -12,40 +12,23 @@ if (!defined('ABSPATH')) {
 }
 
 class Handler {
-    private $svix_webhook;
-
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_webhook_endpoint']);
-        
-        $webhook_secret = get_option('clerk_wp_sync_webhook_secret');
-        if (!empty($webhook_secret)) {
-            try {
-                $this->svix_webhook = new Webhook($webhook_secret);
-            } catch (\Exception $e) {
-                add_action('admin_notices', function() use ($e) {
-                    ?>
-                    <div class="notice notice-error">
-                        <p><?php echo esc_html(sprintf(
-                            __('Clerk WP Sync: Error initializing webhook: %s', 'clerk-wp-sync'),
-                            $e->getMessage()
-                        )); ?></p>
-                    </div>
-                    <?php
-                });
-            }
-        }
     }
 
     public function register_webhook_endpoint() {
-        register_rest_route('clerk-wp-sync/v1', '/webhook', [
-            'methods' => 'POST',
-            'callback' => [$this, 'handle_webhook'],
-            'permission_callback' => [$this, 'verify_webhook'],
-        ]);
+        foreach (['clerk-wp-sync/v1', 'unbc-clerk/v1'] as $namespace) {
+            register_rest_route($namespace, '/webhook', [
+                'methods' => 'POST',
+                'callback' => [$this, 'handle_webhook'],
+                'permission_callback' => [$this, 'verify_webhook'],
+            ]);
+        }
     }
 
     public function verify_webhook(WP_REST_Request $request): bool|WP_Error {
-        if (!$this->svix_webhook) {
+        $webhook_secret = trim((string) get_option('clerk_wp_sync_webhook_secret', ''));
+        if ('' === $webhook_secret) {
             return new WP_Error(
                 'missing_secret',
                 __('Webhook secret not configured', 'clerk-wp-sync'),
@@ -54,6 +37,7 @@ class Handler {
         }
 
         try {
+            $webhook = new Webhook($webhook_secret);
             $payload = $request->get_body();
             $headers = [
                 'svix-id' => $request->get_header('svix-id'),
@@ -61,9 +45,9 @@ class Handler {
                 'svix-signature' => $request->get_header('svix-signature'),
             ];
 
-            $this->svix_webhook->verify($payload, $headers);
+            $webhook->verify($payload, $headers);
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return new WP_Error(
                 'invalid_signature',
                 $e->getMessage(),
@@ -74,20 +58,20 @@ class Handler {
 
     public function handle_webhook(WP_REST_Request $request) {
         $body = $request->get_json_params();
-        $event_type = $request->get_header('svix-event-type') ?? $body['type'] ?? null;
+        $event_type = is_array($body) && isset($body['type']) && is_string($body['type']) ? $body['type'] : '';
 
-        if (!$event_type) {
+        if (!$event_type || !is_array($body)) {
             return new WP_Error(
                 'invalid_request',
-                __('Missing event type in header and payload', 'clerk-wp-sync'),
+                __('Missing event type in signed payload', 'clerk-wp-sync'),
                 ['status' => 400]
             );
         }
 
-        if (empty($body)) {
+        if (empty($body['data']) || !is_array($body['data'])) {
             return new WP_Error(
                 'invalid_request',
-                __('Empty request body', 'clerk-wp-sync'),
+                __('Missing user data in webhook payload', 'clerk-wp-sync'),
                 ['status' => 400]
             );
         }
@@ -110,4 +94,4 @@ class Handler {
             return new WP_Error('sync_error', $e->getMessage(), ['status' => 500]);
         }
     }
-} 
+}

@@ -1,14 +1,31 @@
 {
-    "name": "systemsaholic/clerk-wp-sync",
-    "description": "WordPress plugin to sync users between Clerk.com and WordPress - Growth by automation",
-    "type": "wordpress-plugin",
-    "require": {
-        "php": ">=7.4",
-        "svix/svix": "^1.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "ClerkWPSync\\": "includes/"
-        }
+  "name": "ahzs645/clerk-wp-sync",
+  "description": "WordPress plugin to sync users between Clerk.com and WordPress.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=8.2",
+    "clerkinc/backend-php": "0.7.0",
+    "svix/svix": "^1.76"
+  },
+  "autoload": {
+    "psr-4": {
+      "ClerkWPSync\\": "includes/"
     }
-} 
+  },
+  "scripts": {
+    "test": [
+      "@php tests/proxy.php",
+      "@php tests/local-isolation.php",
+      "@php tests/account-policy.php",
+      "@php tests/bootstrap.php"
+    ]
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "platform": {
+      "php": "8.2.29"
+    },
+    "sort-packages": true
+  }
+}
